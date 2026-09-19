@@ -138,6 +138,29 @@ at 1440p look the same.
 In fog-heavy underwater scenes the effect shrinks to slightly tighter bloom and a little more contrast.
 How much NR changes depends on how much *material* the scene has.
 
+### Lights and faces, zoomed in
+
+Each strip shows NR off, NR on, and the absolute difference amplified ×5 (black means unchanged).
+The lighthouse pairs were captured in one session with the camera untouched: DLSS 5 was switched
+off live. "Off" there is native 4K without DLAA, so the difference map also contains DLAA's
+edge anti-aliasing. The Medical Pavilion pairs compare DLAA with DLAA + NR at 2K, so NR is the only
+variable.
+
+**Faces.** The statue's face changes the most. Polished gold turns into darker, pitted bronze with
+harder specular highlights, and the whole surface lights up in the difference map. A human face in a
+dim scene barely moves: some skin shading and wrinkle contrast, mostly at edges.
+
+![Statue face, NR off / on / difference](images/lf-face-statue.jpg)
+![Character face, NR off / on / difference](images/lf-face-splicer.jpg)
+
+**Lights.** NR re-renders emissive fixtures as hotter, whiter sources. Warm-yellow and green-tinted
+glass goes close to neutral white, and the soft glow halo around the fixture shrinks. In the
+difference maps the lamp bodies and their halos are the brightest areas.
+
+![Hall lantern, NR off / on / difference](images/lf-light-hall-lamp.jpg)
+![Door lamp, NR off / on / difference](images/lf-light-hall-door-lamp.jpg)
+![Wall lamp at 2K, NR off / on / difference](images/lf-light-wall-lamp.jpg)
+
 ### How small can the NR pass be?
 
 At 4K output (540p / 724p / 1080p / 1440p NR):
