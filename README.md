@@ -32,8 +32,10 @@ as estimates.
   even 360p) looks essentially identical to NR at full resolution in 1:1 crops.
 - **Resolution still beats NR for sharpness.** Native 4K is visibly sharper than 2K with or without NR.
   NR changes the lighting and materials, not the resolved detail.
-- **No frame generation is possible in-pipeline** for a 32-bit D3D11 game on a 3070, and "2K → DLSS SR → 4K"
-  is impossible without native DLSS in the game.
+- **Frame generation:** there's no in-pipeline FG for a 32-bit D3D11 game on a 3070; only Lossless
+  Scaling works. In native-DLSS DX12 games, `dlssg_for_sm86` can unlock DLSS-G on Ampere
+  ([section 7](#7-frame-generation-on-an-rtx-3070)).
+- **"2K → DLSS SR → 4K" needs native DLSS in the game.** For BioShock it's impossible.
 
 \* The 60 cap came from the game itself: in-game V-Sync plus `DesiredRefreshRate=60` in `Bioshock.ini` puts a 120 Hz panel into 60 Hz fullscreen. Raising it to 120 removes the cap.
 
@@ -213,11 +215,8 @@ The real fix is a proxy swapchain, which the Feeder author has designed but not 
 only way to get "2K render, 4K display" is to upscale *after* NR, outside the game (NVIDIA Image
 Scaling, Magpie, Lossless Scaling).
 
-**Frame generation on a 3070 in this game.** Ampere DLSS-FG unlocks (e.g. `dlssg_for_sm86`, DLSS
-Enabler) only redirect a game's *own* DLSS-G/Streamline requests, and only in **x64 D3D12**. NVIDIA
-Smooth Motion is RTX 40/50 only. OptiScaler's FSR3 FG does not cover 32-bit D3D11. Putting FG in the
-helper would only interpolate the helper's hidden window. So the only possibility is an external
-capture-based interpolator (Lossless Scaling).
+**Frame generation in this game.** No in-pipeline FG path exists for a 32-bit D3D11 game on a 3070.
+See [section 7](#7-frame-generation-on-an-rtx-3070).
 
 **A big overclock.** NR holds the GPU at 100% continuously. An Afterburner overclock that seemed fine
 produced `DXGI_ERROR_DEVICE_HUNG`, Display event 4101 and LiveKernelEvent 141 within seconds, and
@@ -225,7 +224,84 @@ the game went down with it. A milder curve (flat at ~2040 MHz from ~1068 mV, pow
 been stable and gave the last ~3 fps to a locked 60 at 2K. The memory offset (+723) is the next thing
 to verify: GDDR6 error correction can cost performance without crashing.
 
-## 7. Operational lessons
+## 7. Frame generation on an RTX 3070
+
+Frame generation was the next thing I wanted after NR: take a ~40 fps NR image and double it.
+Here is what exists for Ampere, where FG has to sit relative to NR, and what it can realistically
+deliver on this card. Nothing in this section was measured in BioShock, because no FG path works
+there. The FG numbers below are estimates or come from the tools' own documentation.
+
+### Where FG has to sit: after NR
+
+```
+game render → (DLSS SR) → DLSS 5 NR → UI → FG interpolates between two finished frames → display
+```
+
+FG builds an in-between frame from two finished frames, the game's motion vectors, and optical
+flow. If it ran before NR, every generated frame would lack the NR look and the image would flicker
+between "NR" and "no NR" frames. In a game with native DLSS the order comes for free. NR runs at the
+DLSS SR evaluate, in the middle of the frame, and DLSS-G (Streamline) runs at Present, after all
+post-processing. In BioShock, the NR result is copied back into the game's own backbuffer before
+Present, so anything that captures the final image would also see NR.
+
+### What exists for Ampere
+
+| Method | On a 3070? | Requirements | Usable in BioShock (32-bit D3D11, no DLSS)? |
+|---|---|---|---|
+| DLSS Frame Generation / MFG (official) | ❌ RTX 40/50 only | game integrates DLSS-G | ❌ |
+| [`dlssg_for_sm86`](https://github.com/sdli1995/dlssg_for_sm86) (community) | ✅ SM86 build of DLSS-G (a proxy `version.dll`) | **x64 D3D12**, and the game must already ship DLSS-G through Streamline. The author tested drivers 591.86 and 610.74 | ❌ |
+| DLSS Enabler (community) | ✅ | same idea: redirects the game's own DLSS-G requests | ❌ |
+| NVIDIA Smooth Motion (driver-level, any DX11/12/Vulkan game) | ❌ RTX 40/50 only, no known Ampere unlock | – | ❌ (the Feeder does support it on 40/50 cards) |
+| FSR 3 FG via OptiScaler | ✅ any GPU | 64-bit game with upscaler inputs. Stock OptiScaler also hijacks the NGX calls the Feeder makes | ❌ |
+| AMD AFMF | ❌ AMD GPUs only | – | ❌ |
+| Lossless Scaling (LSFG) | ✅ any GPU | captures the final window (windowed or borderless). Paid | ✅ the only option |
+
+Why the BioShock stack can't host FG: the game process is 32-bit, and every DLSS-G component is
+64-bit D3D12. The 64-bit helper does have a D3D12 swapchain, but it's the helper's own hidden
+window. Interpolating it would never reach the screen. The Feeder's docs also note that a live FG
+test with another NR consumer produced a black screen.
+
+### What FG could deliver here (estimates)
+
+- **FG isn't free.** The generated frame costs GPU time, and with NR the GPU is already at 100%.
+  Expect the real frame rate to drop by a few fps when FG turns on. I haven't measured this on a
+  3070 yet.
+- **Latency follows the real frames.** FG holds back one real frame to interpolate. A 40 fps base
+  still responds like 40 fps (a bit worse) even though motion looks like ~80. Vendors recommend a
+  base of at least 40–60 fps.
+- **Refresh rate decides whether it's worth it.** This panel is 120 Hz G-Sync, and with Reflex and
+  V-Sync, FG output is capped at about 116.
+
+  | Real fps (NR on) | FG 2× output | Verdict on 120 Hz G-Sync |
+  |---|---|---|
+  | ~40 (4K + NR 540p) | ~80 | good: inside VRR, smooth motion, 40 fps latency |
+  | ~57–60 (2K + NR 540p) | ~115 (capped) | near ideal |
+  | ~29 | ~58 | only makes sense on a 60 Hz panel, and latency is poor |
+
+- **VRAM.** NR at 4K already used 4–6 GB of the 3070's 8 GB. FG adds its own buffers and model, so
+  watch for VRAM-pressure stutter (PresentMon spikes, not low averages).
+
+### "Every-other-frame NR" versus real FG
+
+| | Every-other-frame NR (section 5) | Frame generation |
+|---|---|---|
+| Real game frames | every frame rendered | base rate only |
+| NR | every 2nd frame (the NR look updates at ~30 Hz) | on every real frame |
+| Pacing | 10/23 ms sawtooth | even, if the base is even |
+| Latency | real frame rate | base frame rate plus one held frame |
+| Works on 3070 + BioShock | ✅ | only through Lossless Scaling |
+
+### Test plan for the first native-DLSS DX12 game
+
+1. Baseline with DLSS SR Quality at 4K, then add NR 540p through the Cost Scaler. Record the real fps
+   (expected: ~40).
+2. Add `dlssg_for_sm86` and turn on DLSS-G. Check that the NR log keeps counting feature-18
+   evaluations and that the picture isn't black.
+3. Capture with PresentMon 2.x, which separates generated frames from application frames. Report the
+   real fps, the displayed fps, 1% lows and frame-time stdev.
+4. Look for NR consistency between real and generated frames, and for HUD artifacts, in a slow pan.
+
+## 8. Operational lessons
 
 - **Live changes that are safe:** the Cost Scaler's `ResolutionScale`, `EnableAlternatingFrames` and
   `TransferStrength`/`ColorStrength`/`Sharpness`. It hot-reloads its ini. A scale within 0.005 of 1.0
@@ -249,14 +325,12 @@ to verify: GDDR6 error correction can cost performance without crashing.
 - For a "DLAA-only" look without a restart, set `TransferStrength = 0`, `ColorStrength = 0` and
   `Sharpness = 0`. NR still runs at full cost, so this is for comparing images only.
 
-## 8. What's next: games with native DLSS
+## 9. What's next: games with native DLSS
 
 Everything that made BioShock hard disappears in a 64-bit DX12 game with native DLSS. The game renders
 at 1440p, its own DLSS SR produces 4K, RenoDX DLSS5 hooks that evaluate, and the Cost Scaler keeps NR at
-~540p. If the game ships DLSS-G, `dlssg_for_sm86` can unlock frame generation on Ampere. The NR + FG
-combination is still unverified. Refresh rate matters here. On this 120 Hz G-Sync panel, FG 2x from a
-~40 fps base lands around 80 fps, inside the VRR range, which is what FG is designed for. On a
-60 Hz panel, G-Sync + V-Sync + Reflex caps FG output just under 60, which leaves only ~29 real fps.
+~540p. If the game ships DLSS-G, `dlssg_for_sm86` can unlock frame generation on Ampere. For the
+expected numbers, the refresh-rate math and the test plan, see [section 7](#7-frame-generation-on-an-rtx-3070).
 
 The whole procedure, with the lessons above, is packaged as a Claude skill in
 [`skill/dlss5-nr-rtx30/`](skill/dlss5-nr-rtx30/SKILL.md). It covers classifying the game, choosing a
