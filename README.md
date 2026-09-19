@@ -82,6 +82,42 @@ log showed `inline feature 18 evaluation succeeded (count=…)` with a rising co
 showed `Allocated slot … work=960x540, native=2560x1440`. A standalone `host64 --test` run passed
 (feature 18 created, evaluations counting) before anything touched the game folder.
 
+### How it got here, in order
+
+| Step | What happened | Result |
+|---|---|---|
+| Driver | NVIDIA App offered 616.92; **616.56** was installed instead (see §1). The installer's PhysX sub-package "failed" because a newer PhysX was already present. That's harmless | 616.56 confirmed after reboot |
+| Standalone test | `host64 --test`, 640×360, 300 frames, before touching the game | feature 18 created and evaluating, **11.09 ms/frame** of DLAA+NR even at 640×360 |
+| First in-game run | 4K output, NR at full 4K | **8–13 fps**, GPU 100% |
+| Feeder `work_resolution=50` | DLAA+NR on a 1080p copy, then bilinearly stretched back to 4K | ~26 fps. Changing this value **while the game ran crashed the helper**, so the game had to be restarted |
+| + FSR 1 expand-back (`work_upscale=1`) | sharper stretch | clearer image, **same speed** (26 fps, helper 32.2 ms) |
+| Transport-only (`mode=1`) | frames go to the helper and back, with no NGX | 158 fps, copy **0.02 ms**, so the transfer isn't the bottleneck |
+| DLAA only (NR off) | same 1080p work size | 143 fps, **1.1 ms**, so DLAA isn't the bottleneck either |
+| RenoDX 4.70 → 5.2.1 | newer NR consumer | 26 → 26.6 fps, **no speed change** |
+| Cost Scaler 1.0.6 | NR shrunk *inside* the NR call (1286×724), with the native frame kept as the anchor | **39.6 fps**, helper 19.0 ms |
+| Tuning | Feeder back to 100%, NR size swept, output 4K vs 2K, every-other-frame on and off | the tables below |
+
+Two log lines here are misleading. The helper's NGX capability query reports feature 18 as
+`NotImplemented (0xBAD00012)`, and after start-up it prints `consumer did not intercept (ReShade.log
+is unavailable)`. NR works anyway. Only the consumer's own `feature 18 evaluation succeeded` lines
+count as evidence.
+
+### What the NR runtime itself can and can't do
+
+The Feeder's hard floor is `work_resolution=50`, so why is a separate Cost Scaler needed at all?
+Probing the 310.8 NR runtime directly (72 create/evaluate combinations of hint preset × style × NGX
+quality mode at 320×180 → 640×360) showed:
+
+- **NR never upscales.** Every case wrote only an input-sized image (the upper-left quarter of a 2×
+  output). Its internal `ScalingRatio` is accepted but changes nothing. So NR is an image
+  transformation at the input resolution, and resolution reconstruction still needs DLSS SR or an
+  external resolve like the Cost Scaler's.
+- **The render preset (1–3) doesn't change the output.** The checksum was identical, and a separate
+  community test found the same. It's not a quality or speed knob.
+- **Style does change it.** Styles 0/1/2 produce three different results (3 is the same as 2), so
+  Style is what selects the three NR "looks".
+
+
 ## 3. What a frame costs
 
 Measured at 2560×1440 output, 1440p DLAA, NR 540p every frame (PresentMon plus the helper log):
@@ -120,10 +156,45 @@ this card no matter how small the NR pass is.
 | fps | 60 (cap) | 60 (cap) | 48 | 35.5 | 30 | 18.7 |
 | helper GPU | ~10.5 ms | ~14 ms | | | | |
 
+
+### What did and didn't change speed
+
+| Change | Effect on frame time |
+|---|---|
+| NR size (the Cost Scaler's `ResolutionScale`) | **large**, about 12 ms per NR megapixel at 4K |
+| Output resolution 4K → 2K | **large**, 44 → 57 fps at NR 540p |
+| Every-other-frame NR | the average rises, but the slow frames and 1% lows don't change |
+| Mild overclock (~1980 → ~2025 MHz under load, memory +723) | small but real: 57 → 60+ at 2K, helper 14.7 → 14.1 ms |
+| Feeder FSR 1 vs bilinear expand-back | none (image only) |
+| RenoDX 4.70 vs 5.2.1 | none |
+| NR render preset | none (and no image change either) |
+| Cost Scaler downsample + resolve | too small to separate from noise (sub-millisecond by the fit) |
+| Cross-process transfer | 0.02 ms |
+| Game settings (the game process totals ~2.7 ms at 2K) | at most a few fps |
+
+### Power, clocks and VRAM
+
+| Configuration | VRAM used (whole GPU) | Clock / power / temperature |
+|---|---|---|
+| 4K output, NR on a 1080p work copy | 3.4–4.4 GiB | 100% utilisation |
+| 4K output, Feeder 100%, NR 1706×960 | ~6.3 GB | 1980 MHz, 232 W |
+| 2K output, NR 540p, mild overclock | – | 2025 MHz, ~210 W, 67–69 °C |
+
+8 GB is enough for NR alone. Frame generation on top would be tight (§7).
+
 ## 4. Image quality
 
 All comparisons are 1:1 pixel crops. The camera was held still and NR sizes were switched **live**:
 the Cost Scaler re-reads its ini on every change, so every image in a sweep has identical framing.
+
+**Picking a test scene.** The fire-and-water opener is a bad test: flames, water and fog change
+every frame, and lamp flicker comes and goes on its own. Good scenes are static, well lit and full
+of *materials* (metal, stone, brick, fabric, faces). Save there, hold the mouse still, and switch
+settings live when you can, so that every shot has the same framing. Reloading a save moves the
+camera by a few pixels, and the first-person weapon sways, so leave it out of the crops or switch
+to a small weapon. Security panels and neon signs animate on their own, so don't read their
+differences as NR.
+
 
 ### NR on vs off
 
@@ -311,6 +382,12 @@ test with another NR consumer produced a black screen.
   the Feeder's `work_resolution`, turning NR on/off in RenoDX (`NeuralUplift`), and changing the game
   resolution. Edit the ini while the game is closed, because changing resolution in the menu rebuilds
   DLSS.
+- The Cost Scaler clamps `ResolutionScale` to 0.25–2.0 and rounds the NR size down to even numbers
+  (so 1707 becomes 1706). At 2K the smallest NR pass is 640×360, and at 4K it's 960×540.
+- The ReShade Addon installer's certificate chain wasn't trusted on this PC. Instead of adding a trust
+  exception, the DLLs were extracted from the official package and their hashes checked against a
+  reference. Every downloaded component was checked against its release's sha256 or Authenticode
+  signature.
 - After a crash the game can quietly reset itself to **1024×768 windowed**. Check the display ini
   before each launch.
 - Alt-Tab recreates ReShade's runtime and briefly pauses the feed. Hold PrtScn for about half a
@@ -336,6 +413,38 @@ The whole procedure, with the lessons above, is packaged as a Claude skill in
 [`skill/dlss5-nr-rtx30/`](skill/dlss5-nr-rtx30/SKILL.md). It covers classifying the game, choosing a
 route, safe install with backups, log-based verification, NR size sweeps, PresentMon measurement, and
 FG caveats.
+
+
+## Appendix: the final configuration (2K, 60+ fps)
+
+`%APPDATA%\My Games\Bioshock Epic HD\Bioshock\Bioshock.ini`
+```ini
+FullscreenViewportX=2560
+FullscreenViewportY=1440
+StartupFullscreen=True
+DesiredRefreshRate=120      ; was 60, which forced the 120 Hz panel into 60 Hz fullscreen
+UseVSync=1                  ; with G-Sync
+```
+`dlss5-feed.cfg` (next to the game exe)
+```ini
+enabled=1
+mode=2
+work_resolution=100
+work_upscale=0
+async_home=1
+```
+`host64\nvngx_dlssnr.ini` (the Cost Scaler)
+```ini
+EnableProxy = 1
+ResolutionScale = 0.375     ; 960x540 on 2560x1440. 0.25 = 640x360 looked the same, with more headroom
+EnableAlternatingFrames = 0
+EnlargementMode = 1
+TransferStrength = 1.00
+ColorStrength = 1.00
+Sharpness = 0.20
+```
+`host64\ReShade.ini`, section `[RenoDX.DLSS5]`: `NeuralUplift=1`, `NRPasses=1`, `NRPreset=0`,
+`NREnableUpscaling=0`.
 
 ## Repository contents
 
