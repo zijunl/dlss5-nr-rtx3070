@@ -24,7 +24,7 @@ as estimates.
 | 4K output, 4K DLAA | 44.2 | 38.8 | 1.50 ms |
 | 4K output, every-other-frame NR | 60.6 | 40.2 | **6.51 ms** (a 10/23 ms sawtooth) |
 | 2560×1440 output, 1440p DLAA | 57.0 | 53.2 | 0.47 ms |
-| 2560×1440 output, mild GPU overclock, 60 fps cap | **60.0** | 55.4 | 0.66 ms |
+| 2560×1440 output, mild GPU overclock, game capped at 60* | **60.0** | 55.4 | 0.66 ms |
 
 - **NR is the whole cost.** At 1440p it takes about 12–13 of the 17.5 ms frame. The game plus ReShade
   take about 2.7 ms.
@@ -35,6 +35,8 @@ as estimates.
 - **No frame generation is possible in-pipeline** for a 32-bit D3D11 game on a 3070, and "2K → DLSS SR → 4K"
   is impossible without native DLSS in the game.
 
+\* The 60 cap came from the game itself: in-game V-Sync plus `DesiredRefreshRate=60` in `Bioshock.ini` puts a 120 Hz panel into 60 Hz fullscreen. Raising it to 120 removes the cap.
+
 ![Frame-time comparison](images/frametime.svg)
 
 ---
@@ -44,7 +46,7 @@ as estimates.
 | | |
 |---|---|
 | GPU | RTX 3070 8 GB (Ampere, SM86) |
-| Display | 4K, 60 Hz, G-Sync |
+| Display | 4K, **120 Hz**, G-Sync |
 | OS / driver | Windows 10 22H2, **NVIDIA 616.56** |
 | Game | BioShock Remastered (Epic), `BioshockHD.exe`, **32-bit**, D3D11, no DLSS/FSR/XeSS |
 
@@ -109,7 +111,7 @@ includes about 9.2 ms of game + DLAA at 4K. Even a 640×360 NR pass took about 1
 test, so on Ampere NR has a large fixed cost. That fixed cost is why 4K + NR tops out in the 40s on
 this card no matter how small the NR pass is.
 
-### NR size vs fps (2K output, every frame, mild overclock, 60 fps cap)
+### NR size vs fps (2K output, every frame, mild overclock, game capped at 60)
 
 | NR size | 360p | 540p | 720p | 960p | 1080p | 1440p (passthrough) |
 |---|---:|---:|---:|---:|---:|---:|
@@ -173,9 +175,9 @@ to 60 fps at 4K, but PresentMon shows why that number misleads:
 | every frame | 44.2 fps | 38.8 | 23.0 / 22.2 ms | 1.50 ms |
 
 The slow frame is exactly as slow as before, and the 1% low does not move. The fast frame reuses the
-previous frame's NR delta, so the NR layer effectively updates at about 30 Hz. On a 60 Hz G-Sync panel
-the 10 ms frames also fall outside the VRR window and can tear. Every-frame NR at 44 fps sits inside
-the G-Sync range and feels smoother than its number suggests.
+previous frame's NR delta, so the NR layer effectively updates at about 30 Hz. On this 120 Hz G-Sync
+panel the fast frames stay inside the VRR window, so it doesn't tear, but the 10/23 ms cadence is still
+uneven. Every-frame NR at 44 fps is slower but even.
 
 ## 6. Things that don't work (and why)
 
@@ -229,9 +231,9 @@ to verify: GDDR6 error correction can cost performance without crashing.
 Everything that made BioShock hard disappears in a 64-bit DX12 game with native DLSS. The game renders
 at 1440p, its own DLSS SR produces 4K, RenoDX DLSS5 hooks that evaluate, and the Cost Scaler keeps NR at
 ~540p. If the game ships DLSS-G, `dlssg_for_sm86` can unlock frame generation on Ampere. The NR + FG
-combination is still unverified. One caveat for a 60 Hz display: with G-Sync, V-Sync and Reflex, FG
-output is capped just under 60. That means FG 2× runs the real game at ~29 fps, so FG only pays off
-when the base frame rate is well below 57.
+combination is still unverified. Refresh rate matters here. On this 120 Hz G-Sync panel, FG 2x from a
+~40 fps base lands around 80 fps, inside the VRR range, which is what FG is designed for. On a
+60 Hz panel, G-Sync + V-Sync + Reflex caps FG output just under 60, which leaves only ~29 real fps.
 
 The whole procedure, with the lessons above, is packaged as a Claude skill in
 [`skill/dlss5-nr-rtx30/`](skill/dlss5-nr-rtx30/SKILL.md). It covers classifying the game, choosing a

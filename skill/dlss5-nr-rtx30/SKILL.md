@@ -6,7 +6,7 @@ description: Set up, tune and measure the community DLSS 5 Neural Rendering (NR,
 # DLSS 5 Neural Rendering on an RTX 3070
 
 This skill captures a working, measured method from a long session on a reference PC (RTX 3070
-8 GB, 4K 60 Hz G-Sync monitor, Windows 10). Before relying on the numbers, confirm the user's GPU,
+8 GB, 4K 120 Hz G-Sync monitor, Windows 10). Before relying on the numbers, confirm the user's GPU,
 monitor refresh rate and resolution. Reply in the user's language. Keep each turn to one concrete
 step the user performs at the PC ("launch the game, load the save, tell me when you're in"), then
 verify it yourself from the logs.
@@ -32,7 +32,7 @@ ways to reach a playable frame rate are (a) the game rendering fewer pixels (nat
 (b) a small NR size (the Cost Scaler; 540p looked like 1440p NR in pixel crops), and (c) frame
 generation after NR.
 
-**Tell the user this before promising FG numbers** (if their monitor is 60 Hz): With G-Sync plus V-Sync
+**Check the monitor's refresh rate before promising FG numbers** (the reference PC's panel is 4K **120 Hz** G-Sync). On a 120 Hz panel, FG 2x from a base of about 40 fps gives about 80 fps, which fits inside the VRR range. That is the case FG is designed for. On a **60 Hz** panel, with G-Sync plus V-Sync
 (and Reflex, which DLSS-G turns on), FG output is capped just under 60, so FG 2× runs the real game
 at about 29 fps and adds latency. A base of about 40 fps with FG therefore turns into about 29 real
 fps shown as 58. FG is worth it when the base is well below 57. Otherwise a steady 45–57 fps inside
@@ -142,6 +142,8 @@ backup and rollback locations, and what was not verified. Add useful new finding
 there rather than in this file.
 
 ## Hard-won rules (details in the case study)
+- Check the game's own refresh/V-Sync settings. BioShock's ini had `DesiredRefreshRate=60` with
+  V-Sync on, which quietly capped a 120 Hz panel at 60 fps and made every measurement look capped.
 - Turning the Feeder `enabled` 1→0 live is fine. Turning it 0→1 live crashed the helper.
 - Changing `work_resolution` live crashed or froze. Changing the game resolution in the menu
   rebuilds DLSS and may crash. Edit the ini with the game closed instead.

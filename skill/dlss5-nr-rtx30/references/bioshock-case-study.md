@@ -21,7 +21,7 @@ went wrong, and the final state.
 (`ResolutionScale = 0.375`), alternating off.
 Result: **57.0 fps average, 1% low 53.2, stdev 0.47 ms** while panning.
 Update 2026-09-19: the user applied a smaller Afterburner overclock (about 2025 MHz under load, up
-from about 1980). That gave a **locked 60.0 fps** (a 60 fps cap was active), 1% low 55.4,
+from about 1980). That gave a **locked 60.0 fps**. The cap was the game itself: in-game V-Sync on plus `DesiredRefreshRate=60` in `Bioshock.ini` held the 120 Hz panel at 60 in fullscreen. It was raised to 120 on 2026-09-19 and has not been re-measured yet. At the cap: 1% low 55.4,
 helper 14.06 ms, and no driver resets in 2 h. The earlier, larger overclock hung the GPU (see
 below), so check the System event log for 4101/141 events after long sessions.
 
@@ -41,7 +41,7 @@ A linear fit at 4K gives **frame time ≈ 18.4 ms + 12.3 ms per NR megapixel**, 
 9.2 ms of game + DLAA work. Use it to estimate other NR sizes. On Ampere the NR has a large fixed
 cost: even 640×360 in the standalone test took about 11 ms.
 
-2K sweep (2026-09-19, Medical Pavilion-style tiled hall, mild OC, 60 fps cap): NR 360p 60 fps
+2K sweep (2026-09-19, Medical Pavilion-style tiled hall, mild OC, 60 fps cap from the game's 60 Hz fullscreen mode): NR 360p 60 fps
 (helper about 10.5 ms), 540p 60 (about 14 ms), 720p 48, 960p 35.5, 1080p 30, 1440p 18.7. In 1:1
 crops, 360p through 1440p were almost identical. 360p leaves about 3.5 ms of headroom below the
 60 fps limit.
@@ -67,8 +67,7 @@ and `Sharpness = 0`. NR still runs at full cost in this mode, so it is for compa
 - Alternating: average 60.6 fps, but the frames go **10 ms / 23 ms / 10 / 23…** (stdev 6.5 ms),
   1% low 40.2.
 - Every frame: 44.2 fps, steady 22.6 ms (stdev 1.5), 1% low 38.8.
-On a 60 Hz G-Sync display the 10 ms frames exceed the VRR range and tear, and the NR layer updates
-at about 30 Hz. The user chose every-frame NR.
+The display is 120 Hz G-Sync, so the 10 ms frames stay inside the VRR range. The problem is uneven pacing and an NR layer that updates at about 30 Hz, not tearing. The user chose every-frame NR.
 
 ## Things that broke, and the rule each one taught
 1. **Turning the Feeder back on live** (`enabled=0→1`) → RenoDX deadlock → helper crash. Rule:
