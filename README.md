@@ -1,6 +1,7 @@
 # DLSS 5 Neural Rendering on an RTX 3070: a measured field report (BioShock Remastered)
 
-*September 2026. One RTX 3070, one 2016 game, about two days of testing, and a lot of frame-time captures.*
+*September 2026 (last updated 2026-09-19). One RTX 3070, one 2016 game, about two days of testing, and a lot of
+frame-time captures.*
 
 DLSS 5 "3D-guided" Neural Rendering (NR, NGX feature 18) is officially an RTX 40/50 feature. A community
 stack gets it running on Ampere. This post documents what it took to run it on an **RTX 3070 8 GB** in
@@ -14,6 +15,13 @@ as estimates.
 > **Disclaimer.** Everything here is a community mod stack on top of an unofficial, Ampere-patched NR
 > runtime. Nothing in this repository redistributes NVIDIA or third-party binaries. There are only
 > links. Use it in single-player games only: proxy DLLs and injected ReShade can trip anti-cheat.
+
+**Contents:** [TL;DR](#tldr) · [1. Hardware](#1-hardware-and-software) · [2. The stack](#2-the-stack-and-why-it-looks-like-this) ·
+[3. Frame cost](#3-what-a-frame-costs) · [4. Image quality](#4-image-quality) ·
+[5. Every-other-frame NR](#5-every-other-frame-nr-is-not-frame-generation) · [6. What doesn't work](#6-things-that-dont-work-and-why) ·
+[7. Frame generation](#7-frame-generation-on-an-rtx-3070) · [8. Operational lessons](#8-operational-lessons) ·
+[9. Budgeting a new game](#9-budgeting-a-new-game-the-nr-tax) · [10. What's next](#10-whats-next-games-with-native-dlss) ·
+[11. Open questions](#11-open-questions) · [Appendix: final config](#appendix-the-final-configuration)
 
 ---
 
@@ -38,6 +46,8 @@ as estimates.
 - **"2K → DLSS SR → 4K" needs native DLSS in the game.** For BioShock it's impossible.
 - **NR is a fixed tax per frame** (~8.5 ms at 2K/360p, ~12 ms at 2K/540p, ~13.4 ms at 4K/540p). To hold
   60 fps with NR at 2K, a game needs ~120 fps at 1440p with DLSS Quality and NR off ([section 9](#9-budgeting-a-new-game-the-nr-tax)).
+- **Recommended daily setting for BioShock on this card:** 2K output, 1440p DLAA, every-frame NR at 540p
+  (or 360p for more headroom; it looks the same). See the [appendix](#appendix-the-final-configuration).
 
 \* The 60 cap came from the game itself: in-game V-Sync plus `DesiredRefreshRate=60` in `Bioshock.ini` puts a 120 Hz panel into 60 Hz fullscreen. Raising it to 120 removes the cap.
 
@@ -129,7 +139,7 @@ Measured at 2560×1440 output, 1440p DLAA, NR 540p every frame (PresentMon plus 
 ├─ game process GPU (BioShock + ReShade effects + frame copy) ... 2.7 ms
 └─ helper GPU (DLAA + NR)  .......................................... 14.1–14.7 ms
     ├─ DLAA 1440p ............................ ~2.0 ms (estimate: 1.10 ms measured at 1080p, scaled)
-    └─ NR 540p + Cost Scaler resolve ......... ~12.5 ms (estimate: remainder)
+    └─ NR 540p + Cost Scaler resolve ......... ~12–12.5 ms (estimate: remainder)
 Cross-process transfer: 0.02 ms (measured in transport-only mode)
 Game CPU busy: ~3.2 ms per frame. The CPU is not the limit.
 ```
@@ -259,7 +269,7 @@ lighting and material information. **540p at 4K, and 360p at 2K, are the sweet s
 ![Resolution vs NR](images/resolution-vs-nr-pillar.jpg)
 
 Native 4K is the sharpest by a clear margin, and 2K with or without NR is equally soft. So on a 3070
-the choice is: **4K native** (sharp, ~160 fps, no NR), **2K + NR** (60 fps, the NR look, softer), or
+the choice is: **4K native** (sharp, ~160 fps, no NR), **2K + NR** (~60 fps, the NR look, softer), or
 **4K + NR 540p** (both, at ~44 fps).
 
 ### Every scene, every capture
@@ -457,8 +467,9 @@ test with another NR consumer produced a black screen.
 
 ### Test plan for the first native-DLSS DX12 game
 
-1. Baseline with DLSS SR Quality at 4K, then add NR 540p through the Cost Scaler. Record the real fps
-   (expected: ~40).
+1. Measure the baseline with DLSS SR Quality at 4K and NR off, and predict the result with the
+   [NR tax](#9-budgeting-a-new-game-the-nr-tax). Then add NR 540p through the Cost Scaler and record the real
+   fps (~40 needs a baseline of ~86 fps before FG).
 2. Add `dlssg_for_sm86` and turn on DLSS-G. Check that the NR log keeps counting feature-18
    evaluations and that the picture isn't black.
 3. Capture with PresentMon 2.x, which separates generated frames from application frames. Report the
@@ -497,8 +508,10 @@ test with another NR consumer produced a black screen.
 
 ## 9. Budgeting a new game: the NR tax
 
-The SR + NR stack costs **about the same GPU time every frame, whatever the game**. NR's cost depends
-on the NR size and the output size, not on what the game draws. Section 3 showed this: the NR time
+The SR + NR stack costs **about the same GPU time every frame, whatever the game**. DLSS SR's cost
+depends on its output size, and NR's cost depends on the NR size and the output size. Neither depends
+on what the game draws. SR is already included when you measure the game with DLSS on, so the part
+you have to budget on top is NR. Section 3 showed this: the NR time
 scales with NR megapixels, the Cost Scaler's resolve is negligible, and the cross-process transfer
 is 0.02 ms. So NR works like a fixed tax on every frame, and the only question for a new game is how
 much of the frame budget is left for the game itself.
@@ -577,8 +590,10 @@ supports DLSS-G.**
 
 Everything that made BioShock hard disappears in a 64-bit DX12 game with native DLSS. The game renders
 at 1440p, its own DLSS SR produces 4K, RenoDX DLSS5 hooks that evaluate, and the Cost Scaler keeps NR at
-~540p. If the game ships DLSS-G, `dlssg_for_sm86` can unlock frame generation on Ampere. For the
-expected numbers, the refresh-rate math and the test plan, see [section 7](#7-frame-generation-on-an-rtx-3070).
+~540p. If the game ships DLSS-G, `dlssg_for_sm86` can unlock frame generation on Ampere. Before
+installing anything, measure the game's DLSS baseline and check it against the
+[NR tax table](#9-budgeting-a-new-game-the-nr-tax). For FG expectations and the test plan, see
+[section 7](#7-frame-generation-on-an-rtx-3070).
 
 The whole procedure, with the lessons above, is packaged as a Claude skill in
 [`skill/dlss5-nr-rtx30/`](skill/dlss5-nr-rtx30/SKILL.md). It covers classifying the game, choosing a
@@ -586,14 +601,25 @@ route, safe install with backups, log-based verification, NR size sweeps, Presen
 FG caveats.
 
 
-## Appendix: the final configuration (2K, 60+ fps)
+## 11. Open questions
+
+| Question | Status |
+|---|---|
+| Real fps at 2K + NR now that the 60 cap is gone (`DesiredRefreshRate=120`) | not measured yet. The budget math predicts ~60–65 at 540p and ~70–75 at 360p |
+| Best memory overclock (+723 vs lower) for NR throughput | not measured. Compare helper ms at +0 / +400 / +723 |
+| NR tax in a native-DLSS game (no Feeder helper) | assumed equal to BioShock's minus the 0.02 ms copy. Confirm on the first game |
+| FG cost on a 3070 with NR on, and whether NR survives DLSS-G | not measured. See the test plan in section 7 |
+| A close-up of a lit, living face (NR's skin model) | only a dead character in a dim scene so far. Try a Little Sister or a lit splicer |
+| Motion artefacts of NR at 360p (shimmer or lag in pans) | static crops only so far. Needs a slow-pan comparison |
+
+## Appendix: the final configuration
 
 `%APPDATA%\My Games\Bioshock Epic HD\Bioshock\Bioshock.ini`
 ```ini
 FullscreenViewportX=2560
 FullscreenViewportY=1440
 StartupFullscreen=True
-DesiredRefreshRate=120      ; was 60, which forced the 120 Hz panel into 60 Hz fullscreen
+DesiredRefreshRate=120      ; was 60, which forced the 120 Hz panel into 60 Hz fullscreen (uncapped fps not re-measured yet)
 UseVSync=1                  ; with G-Sync
 ```
 `dlss5-feed.cfg` (next to the game exe)
