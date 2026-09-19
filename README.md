@@ -36,6 +36,8 @@ as estimates.
   Scaling works. In native-DLSS DX12 games, `dlssg_for_sm86` can unlock DLSS-G on Ampere
   ([section 7](#7-frame-generation-on-an-rtx-3070)).
 - **"2K → DLSS SR → 4K" needs native DLSS in the game.** For BioShock it's impossible.
+- **NR is a fixed tax per frame** (~8.5 ms at 2K/360p, ~12 ms at 2K/540p, ~13.4 ms at 4K/540p). To hold
+  60 fps with NR at 2K, a game needs ~120 fps at 1440p with DLSS Quality and NR off ([section 9](#9-budgeting-a-new-game-the-nr-tax)).
 
 \* The 60 cap came from the game itself: in-game V-Sync plus `DesiredRefreshRate=60` in `Bioshock.ini` puts a 120 Hz panel into 60 Hz fullscreen. Raising it to 120 removes the cap.
 
@@ -493,7 +495,85 @@ test with another NR consumer produced a black screen.
 - For a "DLAA-only" look without a restart, set `TransferStrength = 0`, `ColorStrength = 0` and
   `Sharpness = 0`. NR still runs at full cost, so this is for comparing images only.
 
-## 9. What's next: games with native DLSS
+## 9. Budgeting a new game: the NR tax
+
+The SR + NR stack costs **about the same GPU time every frame, whatever the game**. NR's cost depends
+on the NR size and the output size, not on what the game draws. Section 3 showed this: the NR time
+scales with NR megapixels, the Cost Scaler's resolve is negligible, and the cross-process transfer
+is 0.02 ms. So NR works like a fixed tax on every frame, and the only question for a new game is how
+much of the frame budget is left for the game itself.
+
+```
+final frame time  =  game frame time with its own DLSS SR (NR off)  +  NR tax
+final fps         =  1000 / (1000 / baseline_fps + NR tax)
+baseline needed   =  1000 / (1000 / target_fps - NR tax)
+```
+
+### The NR tax on this RTX 3070 (mild overclock, every-frame NR)
+
+| Output | NR size | NR tax | Where it comes from |
+|---|---|---:|---|
+| 2560×1440 | 640×360 | **~8.5 ms** | helper 10.5 ms at 360p minus ~2 ms for DLAA at 1440p |
+| 2560×1440 | 960×540 | **~12 ms** | helper 14.1 ms minus ~2 ms for DLAA |
+| 3840×2160 | 960×540 (the Cost Scaler's minimum at 4K) | **~13.4 ms** | 22.6 ms with NR minus 9.2 ms with DLAA only |
+
+Sanity check against BioShock: a 2K baseline of about 4.7 ms (~210 fps) plus a 12 ms tax gives
+16.7 ms, which is the measured locked 60. A 4K baseline of 9.2 ms (109 fps) plus 13.4 ms gives
+22.6 ms, which is the measured 44 fps. The tax was measured through the Feeder's helper process. In
+a native-DLSS game the NR call and the resolve are the same work, so the tax should carry over,
+minus the (tiny) cross-process copy. That still needs to be confirmed on the first such game.
+
+### What the game has to reach with DLSS on and NR off
+
+Measure the game first with its own DLSS SR at Quality and NR off (the "baseline"). You need at
+least:
+
+| Output + NR preset | for **60 fps** final | for 50 | for 45 | for 40 (then FG 2× → ~80) |
+|---|---:|---:|---:|---:|
+| **2K + NR 360p** | **~122 fps** | ~87 | ~73 | ~61 (~74 if FG costs ~3 ms) |
+| **2K + NR 540p** | **~214 fps** | ~125 | ~98 | ~77 (~100 with FG) |
+| **4K + NR 540p** | **~306 fps** (not realistic) | ~152 | ~113 | ~86 (**~116 with FG**) |
+
+The same math the other way round (final fps with NR on, for a given baseline):
+
+| Baseline (DLSS on, NR off) | 60 | 80 | 100 | 120 | 150 | 200 |
+|---|---:|---:|---:|---:|---:|---:|
+| 2K + NR 360p | 40 | 48 | 54 | 59 | 66 | 74 |
+| 2K + NR 540p | 35 | 41 | 45 | 49 | 54 | 59 |
+| 4K + NR 540p | 33 | 39 | 43 | 46 | 50 | 54 |
+
+Takeaways:
+
+- **Real 60 fps at 4K with NR is out of reach on a 3070.** The tax alone is ~13.4 ms of the 16.7 ms
+  budget. 4K + NR means about 40–50 real fps, with frame generation on top.
+- **At 2K, NR 360p is the setting that makes 60 reachable.** The game needs ~120 fps with DLSS
+  Quality at 1440p, which is 3 to 4 times what heavy modern games manage on this card.
+- A light game gains little from DLSS, because the baseline is already near the tax floor. A heavy
+  game gains a lot from DLSS, but its baseline is far too low. NR on a 3070 suits **older or lighter
+  games that already run at 120–200+ fps.**
+- **FG's own cost (~3 ms here) is a guess.** It hasn't been measured on this card with NR yet.
+
+### Which games fit which preset (rough 3070 numbers, to be verified)
+
+The baselines below are rough RTX 3070 figures (1440p or 4K, high preset, DLSS Quality, no ray
+tracing) from typical published results, **not measurements from this PC**. Treat them as a
+starting point, and measure your own baseline with PresentMon and NR off before you commit. The NR
+route also needs a 64-bit game with native DLSS, and frame generation needs DX12 plus native DLSS-G.
+Avoid anything with kernel anti-cheat or online play.
+
+| Tier | Needed baseline | Examples (approx. 3070 baseline) | Expected result |
+|---|---|---|---|
+| **2K + NR 540p at 60** | ≥ ~200 fps at 1440p DLSS Q | Doom Eternal (~200+, Vulkan, so NR goes through the Feeder's Vulkan path, not the Cost Scaler) | ~60 |
+| **2K + NR 360p at ~60** | ≥ ~120 fps at 1440p DLSS Q | Death Stranding (~120–140), Shadow of the Tomb Raider (~120–140), Horizon Zero Dawn (~110–130) | ~55–60 |
+| **2K + NR 360p at 45–55** | ~75–100 fps | Red Dead Redemption 2 (~85–95), Marvel's Spider-Man Remastered (~90–110), Cyberpunk 2077 without RT (~75–85) | ~45–55 |
+| **4K + NR 540p + FG** | ≥ ~86–116 fps at 4K DLSS Q, **and native DLSS-G** | Few DLSS-G games are this light on a 3070. Marvel's Spider-Man Remastered (~70–80 at 4K DLSS Q) is close | ~35–40 real, ~70–80 displayed |
+| too heavy | < ~60 fps baseline | Alan Wake 2, Cyberpunk 2077 with RT, Black Myth: Wukong at high settings | < 35 real fps; FG gets a poor base |
+
+The practical rule for this card: **if a game runs at ≥ ~120 fps at 1440p with DLSS Quality, it can
+run NR at 2K and 60 fps. If it only makes 60–100, expect 40–55 fps with NR, or use FG where the game
+supports DLSS-G.**
+
+## 10. What's next: games with native DLSS
 
 Everything that made BioShock hard disappears in a 64-bit DX12 game with native DLSS. The game renders
 at 1440p, its own DLSS SR produces 4K, RenoDX DLSS5 hooks that evaluate, and the Cost Scaler keeps NR at

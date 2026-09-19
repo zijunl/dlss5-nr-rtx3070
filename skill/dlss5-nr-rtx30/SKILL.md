@@ -39,6 +39,23 @@ fps shown as 58. FG is worth it when the base is well below 57. Otherwise a stea
 the G-Sync range may feel better. Present both options with PresentMon numbers and let the user
 choose.
 
+## Budget before you install: the NR tax
+
+NR costs about the same GPU time every frame, whatever the game. So measure the game's **baseline**
+first (its own DLSS SR at Quality, NR off, PresentMon while panning), then predict:
+`final_fps = 1000 / (1000/baseline + tax)` and `baseline_needed = 1000 / (1000/target - tax)`.
+
+| Output + NR (RTX 3070, mild OC) | Tax | Baseline for 60 | for 45 | for 40 real + FG (~3 ms, unmeasured) |
+|---|---:|---:|---:|---:|
+| 2K + NR 360p | ~8.5 ms | ~122 fps | ~73 | ~74 |
+| 2K + NR 540p | ~12 ms | ~214 fps | ~98 | ~100 |
+| 4K + NR 540p (the minimum at 4K) | ~13.4 ms | ~306 (unrealistic) | ~113 | ~116 |
+
+Rule of thumb: ≥ ~120 fps at 1440p with DLSS Quality means 2K + NR 360p can hold ~60. A baseline of
+60–100 means 40–55 fps with NR, or FG if the game ships DLSS-G. Real 60 at 4K with NR is out of reach
+on a 3070. Tell the user this before installing anything, and re-measure the tax on each new game
+(the numbers above came from BioShock through the Feeder helper).
+
 ## Step 1: Classify the game before touching anything
 
 The route depends entirely on these facts. Check them from the files, not from memory:
