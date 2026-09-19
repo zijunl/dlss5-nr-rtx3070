@@ -71,7 +71,7 @@ NR size = (size NR receives) × `ResolutionScale`. With a native-DLSS game, NR r
 SR output (4K)**, so 0.25 → 960×540 and 0.333 → 1280×720.
 
 ### RenoDX DLSS5 — `[RenoDX.DLSS5]` in the ReShade.ini that loads the add-on
-`NeuralUplift` (1 = NR on), `NRPreset` (no evidence that it changes speed), `NRPasses` (1),
+`NeuralUplift` (1 = NR on), `NRPreset` (a direct probe of the 310.8 runtime found presets 1–3 give identical output, so it changes neither speed nor look), `NRStyle` (0/1/2 are three distinct looks; 3 is the same as 2), `NRPasses` (1),
 `NREnableUpscaling` (leave at 0), `NRToggleKey`=117 (F6).
 Changing `NeuralUplift` needs a game restart. Turning NR on while the game runs can make RenoDX
 deadlock.
