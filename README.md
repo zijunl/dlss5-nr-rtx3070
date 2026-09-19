@@ -260,6 +260,97 @@ Native 4K is the sharpest by a clear margin, and 2K with or without NR is equall
 the choice is: **4K native** (sharp, ~160 fps, no NR), **2K + NR** (60 fps, the NR look, softer), or
 **4K + NR 540p** (both, at ~44 fps).
 
+### Every scene, every capture
+
+Four scenes were captured. They are listed here in the order they were shot, with the conditions
+for each so you can tell which comparisons are pixel-aligned. Labels are burned into the images,
+and all crops are 1:1 unless stated otherwise.
+
+#### Scene 1: the opening, the plane crash at sea (night, fire, water)
+
+The least reliable scene. The camera moved between shots, and fire and water change every frame.
+Use it for overall character, not for detail.
+
+*4K native | 4K + NR 960p (every other frame) | 2K + NR 960p (every other frame, upscaled to 4K scale):*
+![Scene 1, lantern](images/s1-3way-lantern.jpg)
+![Scene 1, floating lamp and water](images/s1-3way-water.jpg)
+![Scene 1, fire](images/s1-3way-fire.jpg)
+
+At 4K output, NR 960p keeps native sharpness. The 2K shot is soft because of the resolution, not
+the NR. In both NR shots the floating lamp goes dim and white and loses its golden reflection, and
+the fire loses saturation and fine flame tips.
+
+*4K native | 4K + NR at full 4K (every frame, proxy off, ~12.5 fps):*
+![Scene 1, 4K NR, water](images/s1-4knr-water.jpg)
+![Scene 1, 4K NR, fire](images/s1-4knr-fire.jpg)
+![Scene 1, 4K NR, lantern](images/s1-4knr-lantern.jpg)
+
+At the same resolution, the NR changes are all lighting: emissive light gets dimmer and whiter,
+fire gets flatter, and sharpness stays about the same.
+
+#### Scene 2: the lighthouse hall (statue, brass, stone)
+
+The best scene for NR. Its images are the ones in "NR on vs off", "Lights and faces" and the 4K size
+sweep above. The NR-off vs NR-960p pair was captured in one session by switching DLSS 5 off live,
+so it's pixel-aligned. The 4K size sweep (540p/724p/1080p/1440p) was shot in one session with live
+`ResolutionScale` changes.
+
+#### Scene 3: Welcome to Rapture, the window corridor (underwater, fog, neon)
+
+2K output, every-frame NR. All six NR sizes, DLAA-only and 2K native were captured in **one
+session with the camera untouched**. DLAA-only was made by setting the Cost Scaler's transfer to 0,
+and native by switching DLSS 5 off live. The 4K native shot came from a reload of the same save.
+The held wrench sways and the water behind the glass keeps moving, so ignore those areas.
+
+| NR size | 360p | 540p | 720p | 960p | 1080p | 1440p |
+|---|---:|---:|---:|---:|---:|---:|
+| fps (60 cap from the game) | 60 | 60 | 47.4 | 35.2 | 28.3 | 18.4 |
+
+*NR size sweep:*
+![Scene 3, NR sizes, neon](images/s3-sizes-neon.jpg)
+![Scene 3, NR sizes, column](images/s3-sizes-column.jpg)
+![Scene 3, NR sizes, floor](images/s3-sizes-floor.jpg)
+
+*2K native (no DLAA, no NR) | DLAA only | NR 540p | NR 1440p:*
+![Scene 3, on/off, neon](images/s3-onoff-neon.jpg)
+![Scene 3, on/off, floor](images/s3-onoff-floor.jpg)
+![Scene 3, on/off, column](images/s3-onoff-column.jpg)
+
+*4K native | 2K + NR 540p | 2K native (both 2K shots upscaled to 4K scale):*
+![Scene 3, resolution, neon](images/s3-res-neon.jpg)
+![Scene 3, resolution, column](images/s3-res-column.jpg)
+![Scene 3, resolution, floor](images/s3-res-floor.jpg)
+
+Findings: this is the scene where NR does least. Fog and emissive signage leave NR little
+*material* to work with, and the visible change is slightly tighter bloom around signs and a
+little more contrast. The six NR sizes can't be told apart. Native 4K is clearly the sharpest,
+with finer waterfall streaks, wrench knurling and sign lettering, and 2K with or without NR is
+equally soft.
+
+#### Scene 4: Medical Pavilion entrance (tiles, stone pillar, patterned floor, a body)
+
+2K output, every-frame NR. The six NR sizes were captured in **one session with the camera
+untouched**. The NR 540p, DLAA-only and 2K native shots come from a second session, and the 4K
+native shot from a reload of the same save.
+
+*NR size sweep (the fps is in each label):*
+![Scene 4, NR sizes, pillar](images/nr-size-sweep-2k-pillar.jpg)
+![Scene 4, NR sizes, body](images/nr-size-sweep-2k-body.jpg)
+![Scene 4, NR sizes, floor](images/s4-sizes-floor.jpg)
+![Scene 4, NR sizes, background](images/s4-sizes-background.jpg)
+
+*4K native | 2K native | 2K DLAA only | 2K + NR 540p (2K shots upscaled to 4K scale):*
+![Scene 4, resolution, pillar](images/resolution-vs-nr-pillar.jpg)
+![Scene 4, resolution, body](images/s4-res-body.jpg)
+![Scene 4, resolution, floor](images/s4-res-floor.jpg)
+![Scene 4, resolution, background](images/s4-res-background.jpg)
+
+Findings: NR brightens the highlights on the pale stone and adds a little local contrast. The body
+and floor hardly change. 360p through 1440p look the same. The security panel in the background
+blinks on its own (red and white dots), so that difference isn't NR. The blood glints in the 4K
+native body shot come from a different moment after the reload.
+
+
 ## 5. "Every-other-frame NR" is not frame generation
 
 The Cost Scaler can run NR on alternate frames (`EnableAlternatingFrames`). The average jumps from 44
