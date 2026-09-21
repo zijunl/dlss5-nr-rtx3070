@@ -57,11 +57,17 @@ that fights the game's art direction. **Check the game's art style before sellin
 | 2K | Balanced | Epic | **97.5 ± 2.5** (4 runs) | **48.8 ± 1.3** | ~71 | 1.4 ms |
 | 2K | Balanced | High | 107.9 | 53.9 | 82.9 | 0.85 ms |
 | 2K | Quality | Epic | 83.7 | 41.9 | 61.2 | 2.5 ms |
+| 2K | Quality | Epic, **FG 3X** | **119.3** | **39.8** | **86.0** | **1.5 ms** |
 | 2K | DLAA | Epic | 54.6 | 27.5 | 21.9 | **12.7 ms** (49 frames > 50 ms) |
 | 4K | Performance | Epic | 60.2 | 30.1 | 45.7 | 1.8 ms |
 | 4K | Performance | High | 79.0 | 39.5 | 63.4 | **0.99 ms** |
 
-The user settled on **2K + Epic + DLSS Balanced + FG 2X**.
+The user settled on **2K + Epic + DLSS Quality + FG 3X**: 119.3 displayed / 39.8 real.
+
+**Pick the FG multiplier from the refresh rate.** 3X cost only 5% of the real frame rate versus 2X
+(41.9 → 39.8) and filled the 120 Hz panel (119.3 displayed, a clean 2:1 generated:real ratio). Pacing
+improved too (stdev 2.5 → 1.5 ms, 1% low 61 → 86) because the output runs into the refresh ceiling.
+Go one step above what fills the panel and you gain nothing the display can show.
 
 Notes:
 - Epic costs only ~8% of real fps at 2K but ~31% at 4K, because the Epic shadow/GI/reflection work

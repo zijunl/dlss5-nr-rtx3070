@@ -673,6 +673,7 @@ the game's own DLSS-G on Ampere. The game's FG option stopped being greyed out, 
 | 2K | Balanced | **Epic** | **97.5 ± 2.5** (4 runs) | **48.8 ± 1.3** | ~71 | 1.4 ms |
 | 2K | Balanced | High | 107.9 | 53.9 | 82.9 | 0.85 ms |
 | 2K | Quality | Epic | 83.7 | 41.9 | 61.2 | 2.5 ms |
+| 2K | Quality | Epic, **FG 3X** | **119.3** | **39.8** | **86.0** | **1.5 ms** |
 | 2K | DLAA | Epic | 54.6 | 27.5 | 21.9 | 12.7 ms (49 frames > 50 ms) |
 | 4K | Performance | Epic | 60.2 | 30.1 | 45.7 | 1.8 ms |
 | 4K | Performance | High | 79.0 | 39.5 | 63.4 | 0.99 ms |
@@ -686,7 +687,12 @@ Reading it:
   falls apart.
 - **VRAM ran 7.4–7.7 GB of 8 GB in every playable configuration.** 4K + Performance used *less* than
   2K + Balanced, because the internal render buffers dominate, not the output.
-- The user settled on **2K + Epic + DLSS Balanced + FG 2X**: ~97 displayed, ~49 real.
+- **3X frame generation is the better fit for a 120 Hz panel.** Going from 2X to 3X cost only 5% of the
+  real frame rate (41.9 → 39.8) and filled the refresh rate: 119.3 displayed, exactly 2 generated frames
+  per real one, and *steadier* pacing than 2X (stdev 2.5 → 1.5 ms, 1% low 61 → 86) because the output sits
+  against the 120 Hz ceiling. 4X would be pointless here — the panel can't show it.
+- **Multipliers don't change how the game feels.** Input still tracks the ~40 real fps at both 2X and 3X.
+- Final settings: **2K + Epic + DLSS Quality + FG 3X** — 119 displayed / 40 real.
 
 ### Four measurement traps this game exposed
 
