@@ -17,6 +17,9 @@ Read these when needed:
 - `references/bioshock-case-study.md`: measured costs, image-quality findings, and every failure
   from the first game, each with the rule it taught. Read it before you tune performance or when
   something breaks.
+- `references/expedition33-case-study.md`: the **native-DLSS route** end to end (NR on top of the
+  game's own DLSS, then the Ampere FG unlock), with measured fps for six configurations. Read it
+  before starting a game that has its own DLSS.
 - `scripts/frametime_report.py`: summarises PresentMon captures and draws the frame-time chart.
 
 ## What the user wants (default target profile)
@@ -53,8 +56,14 @@ first (its own DLSS SR at Quality, NR off, PresentMon while panning), then predi
 
 Rule of thumb: ≥ ~120 fps at 1440p with DLSS Quality means 2K + NR 360p can hold ~60. A baseline of
 60–100 means 40–55 fps with NR, or FG if the game ships DLSS-G. Real 60 at 4K with NR is out of reach
-on a 3070. Tell the user this before installing anything, and re-measure the tax on each new game
-(the numbers above came from BioShock through the Feeder helper).
+on a 3070. Tell the user this before installing anything, and **re-measure the tax on each game**:
+Expedition 33 came in at **10.0 ms** at 2K/360p where BioShock was 8.5 ms, so the prediction was 6%
+off. The tax varies with scene content, not just with the NR size.
+
+**Frame generation, measured** (dlssg_for_sm86 0.3.5, Expedition 33, 1440p 2X): FG's own cost is
+about **3.2 ms per group**, twice the ~1.5 ms in the tool's own table, and it needs ~540 MiB of VRAM
+at 1440p (~810 MiB at 4K). Predict displayed fps as `M × 1000 / (1000/real_base + T_FG)`. A real
+base of ~49 fps gave ~97 displayed.
 
 ## Step 1: Classify the game before touching anything
 
@@ -159,6 +168,19 @@ backup and rollback locations, and what was not verified. Add useful new finding
 there rather than in this file.
 
 ## Hard-won rules (details in the case study)
+- **Wait for textures to settle after any settings change** (a minute or two of play) before capturing.
+  A capture taken right after a change shows hitches and dropped generated frames that are streaming,
+  not a real limit. This produced one wrong "VRAM is full" call.
+- **The game must be in focus.** Out of focus, UE caps the frame rate (30 fps) and FG stops entirely
+  (0 generated frames). Give the user ~10 s to Alt+Tab back before the capture starts.
+- **Changing the desktop resolution can reset the refresh rate to 60 Hz.** Check it every time.
+- **Borderless windowed locks the game to the desktop resolution**, which is why the in-game resolution
+  list is greyed out. Change the desktop, or use exclusive fullscreen. Borderless stays the better mode
+  for this workflow (instant Alt+Tab, overlays, external FG tools).
+- **Check the game's art style before selling NR.** NVIDIA states DLSS 5 is not designed for strongly
+  stylized games; on a painterly UE5 title the user removed NR after seeing the cost.
+- With FG on, `--v2_metrics` in PresentMon separates generated frames (tiny FrameTime) from real ones.
+  A healthy 2X run is 1:1; a worse ratio means FG is dropping frames.
 - Check the game's own refresh/V-Sync settings. BioShock's ini had `DesiredRefreshRate=60` with
   V-Sync on, which quietly capped a 120 Hz panel at 60 fps and made every measurement look capped.
 - Turning the Feeder `enabled` 1→0 live is fine. Turning it 0→1 live crashed the helper.

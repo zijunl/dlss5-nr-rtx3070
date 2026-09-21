@@ -21,7 +21,8 @@ as estimates.
 [5. Every-other-frame NR](#5-every-other-frame-nr-is-not-frame-generation) · [6. What doesn't work](#6-things-that-dont-work-and-why) ·
 [7. Frame generation](#7-frame-generation-on-an-rtx-3070) · [8. Operational lessons](#8-operational-lessons) ·
 [9. Budgeting a new game](#9-budgeting-a-new-game-the-nr-tax) · [10. What's next](#10-whats-next-games-with-native-dlss) ·
-[11. Open questions](#11-open-questions) · [Appendix: final config](#appendix-the-final-configuration)
+[11. Open questions](#11-open-questions) ·
+[12. Second game: Expedition 33](#12-second-game-clair-obscur-expedition-33-the-native-dlss-route-and-real-frame-generation) · [Appendix: final config](#appendix-the-final-configuration)
 
 ---
 
@@ -46,6 +47,9 @@ as estimates.
 - **"2K → DLSS SR → 4K" needs native DLSS in the game.** For BioShock it's impossible.
 - **NR is a fixed tax per frame** (~8.5 ms at 2K/360p, ~12 ms at 2K/540p, ~13.4 ms at 4K/540p). To hold
   60 fps with NR at 2K, a game needs ~120 fps at 1440p with DLSS Quality and NR off ([section 9](#9-budgeting-a-new-game-the-nr-tax)).
+- **A second game (Clair Obscur: Expedition 33) confirmed the method and finally measured FG**: NR on top
+  of the game's own DLSS worked first try (10.0 ms tax), and the Ampere DLSS-G unlock gave ~97 displayed /
+  ~49 real fps ([section 12](#12-second-game-clair-obscur-expedition-33-the-native-dlss-route-and-real-frame-generation)).
 - **Recommended daily setting for BioShock on this card:** 2K output, 1440p DLAA, every-frame NR at 540p
   (or 360p for more headroom; it looks the same). See the [appendix](#appendix-the-final-configuration).
 
@@ -401,6 +405,9 @@ to verify: GDDR6 error correction can cost performance without crashing.
 ## 7. Frame generation on an RTX 3070
 
 Frame generation was the next thing I wanted after NR: take a ~40 fps NR image and double it.
+*(Update: this section's estimates were later checked against a real FG run in another game — see
+[section 12](#12-second-game-clair-obscur-expedition-33-the-native-dlss-route-and-real-frame-generation).
+The ~3 ms guess for FG's own cost held up: ~3.2 ms measured at 1440p 2X.)*
 Here is what exists for Ampere, where FG has to sit relative to NR, and what it can realistically
 deliver on this card. Nothing in this section was measured in BioShock, because no FG path works
 there. The FG numbers below are estimates or come from the tools' own documentation.
@@ -534,7 +541,9 @@ Sanity check against BioShock: a 2K baseline of about 4.7 ms (~210 fps) plus a 1
 16.7 ms, which is the measured locked 60. A 4K baseline of 9.2 ms (109 fps) plus 13.4 ms gives
 22.6 ms, which is the measured 44 fps. The tax was measured through the Feeder's helper process. In
 a native-DLSS game the NR call and the resolve are the same work, so the tax should carry over,
-minus the (tiny) cross-process copy. That still needs to be confirmed on the first such game.
+minus the (tiny) cross-process copy. **Confirmed on the second game, with a caveat:** Expedition 33's tax
+was **10.0 ms** at 2K/360p where BioShock's was 8.5 ms, so the prediction landed within 6% but the tax is
+not a constant — re-measure it per game.
 
 ### What the game has to reach with DLSS on and NR off
 
@@ -607,10 +616,89 @@ FG caveats.
 |---|---|
 | Real fps at 2K + NR now that the 60 cap is gone (`DesiredRefreshRate=120`) | not measured yet. The budget math predicts ~60–65 at 540p and ~70–75 at 360p |
 | Best memory overclock (+723 vs lower) for NR throughput | not measured. Compare helper ms at +0 / +400 / +723 |
-| NR tax in a native-DLSS game (no Feeder helper) | assumed equal to BioShock's minus the 0.02 ms copy. Confirm on the first game |
-| FG cost on a 3070 with NR on, and whether NR survives DLSS-G | not measured. See the test plan in section 7 |
+| NR tax in a native-DLSS game (no Feeder helper) | **answered**: 10.0 ms in Expedition 33 at 2K/360p vs 8.5 ms in BioShock. Same order, not identical |
+| FG cost on a 3070 | **answered**: ~3.2 ms per group at 1440p 2X (Expedition 33). Whether NR *survives* DLSS-G is still untested — NR was removed there before FG went in |
 | A close-up of a lit, living face (NR's skin model) | only a dead character in a dim scene so far. Try a Little Sister or a lit splicer |
 | Motion artefacts of NR at 360p (shimmer or lag in pans) | static crops only so far. Needs a slow-pan comparison |
+
+## 12. Second game: Clair Obscur: Expedition 33 (the native-DLSS route, and real frame generation)
+
+BioShock was the hard case: 32-bit, no DLSS, everything faked from outside. Expedition 33 is the easy
+one — x64 D3D12, UE5, shipping DLSS SR, Ray Reconstruction **and** DLSS-G (310.2.1, Streamline 2.7.30),
+single-player, no anti-cheat. It took about five minutes to classify and the NR install worked on the
+first try.
+
+### NR on top of the game's own DLSS
+
+Seven files next to the exe (ReShade Addon as `dxgi.dll`, `renodx-dlss5.addon64`, the Ampere NR
+runtime as `nvngx_dlssnr_real.dll`, the Cost Scaler as `nvngx_dlssnr.dll` + ini + companion), nothing
+overwritten. No Feeder, no helper process. The log shows the order the Feeder could only approximate:
+
+```
+NGX feature create intercepted: feature=1 (DLSS/DLAA)
+feature 18 created ... after DLSS/DLAA for NR input 2560x1440 -> output 2560x1440 with guides 1485x836
+[Proxy] Allocated slot 0 textures: work=640x360, native=2560x1440
+```
+
+NR runs on the **post-SR 1440p image**, with the game's own 1485×836 render as guides.
+
+**Measured NR tax: 10.0 ms** at 2K with NR 640×360 (65.1 → 39.5 fps), against 8.5 ms for BioShock at
+the same setting. The section 9 prediction (42 fps) was 6% off. So the tax is a good planning tool,
+but **it is not a constant across games** — scene content moves it.
+
+### Why NR came back out
+
+NVIDIA's research page says DLSS 5 "is not designed for games whose visual identity depends on a
+strongly stylized aesthetic", and that on illustrated or cartoon-like games it "may work against the
+art direction". Expedition 33 is painterly. Between that, community complaints that DLSS 5 "ruins the
+art style" in this game, and 10 ms per frame, NR was removed. Worth checking the art style *before*
+installing.
+
+### Frame generation, finally measured
+
+`dlssg_for_sm86` 0.3.5 (two files next to the exe: a self-signed `version.dll` plus an ini) unlocks
+the game's own DLSS-G on Ampere. The game's FG option stopped being greyed out, and PresentMon
+`--v2_metrics` proves what is happening: every generated frame appears as an extra present with a
+~0.4 ms `FrameTime` next to the ~18 ms real frame. A healthy 2X run is exactly 1:1.
+
+- **FG's own cost here: ~3.2 ms per group at 1440p 2X** — twice the ~1.5 ms in the tool's own table.
+  Section 7 guessed 3 ms, which turned out to be close.
+- Extra VRAM per the tool's docs: ~540 MiB at 1440p, ~810 MiB at 4K.
+- Latency: displayed latency measured 25.8 ms with FG on.
+
+### Six configurations measured (FG 2X everywhere, 2K = 2560×1440 @ 120 Hz)
+
+| Output | DLSS | Preset | Displayed fps | Real fps | 1% low | Frame-time stdev |
+|---|---|---|---:|---:|---:|---:|
+| 2K | Balanced | **Epic** | **97.5 ± 2.5** (4 runs) | **48.8 ± 1.3** | ~71 | 1.4 ms |
+| 2K | Balanced | High | 107.9 | 53.9 | 82.9 | 0.85 ms |
+| 2K | Quality | Epic | 83.7 | 41.9 | 61.2 | 2.5 ms |
+| 2K | DLAA | Epic | 54.6 | 27.5 | 21.9 | 12.7 ms (49 frames > 50 ms) |
+| 4K | Performance | Epic | 60.2 | 30.1 | 45.7 | 1.8 ms |
+| 4K | Performance | High | 79.0 | 39.5 | 63.4 | 0.99 ms |
+
+Reading it:
+
+- **Epic costs ~8% of real fps at 2K but ~31% at 4K**, because Epic's shadow/GI/reflection work scales
+  with output resolution. On this card, spending the budget on output resolution beats spending it on
+  Epic effects.
+- **DLAA at Epic is beyond the card.** It isn't VRAM (7.7 GB, same as the rest); the frame time simply
+  falls apart.
+- **VRAM ran 7.4–7.7 GB of 8 GB in every playable configuration.** 4K + Performance used *less* than
+  2K + Balanced, because the internal render buffers dominate, not the output.
+- The user settled on **2K + Epic + DLSS Balanced + FG 2X**: ~97 displayed, ~49 real.
+
+### Four measurement traps this game exposed
+
+1. **Wait for textures to settle after a settings change.** The first Epic capture showed a 334 ms
+   hitch and only 958 generated frames against 1461 real ones. Two re-runs a couple of minutes later
+   were clean (1503:1503, max frame 32 ms). The first reading produced a wrong "VRAM is full" call.
+2. **A capture with the game out of focus is garbage.** UE throttles to 30 fps and FG stops
+   completely (0 generated frames, GPU at 61%).
+3. **Changing the desktop resolution reset the monitor to 60 Hz**, twice. Check the refresh rate
+   after every resolution change or the capture is V-Sync-limited.
+4. **Borderless windowed locks the game's resolution to the desktop's**, which is why the in-game
+   resolution list is greyed out. Change the desktop, or use exclusive fullscreen.
 
 ## Appendix: the final configuration
 
@@ -651,7 +739,7 @@ Sharpness = 0.20
 | `images/` | 1:1 comparison crops and the frame-time chart |
 | `data/` | raw PresentMon captures behind the frame-time table |
 | `scripts/frametime_report.py` | PresentMon CSV summary + SVG chart |
-| `skill/dlss5-nr-rtx30/` | the Claude skill (SKILL.md, component/version reference, BioShock case study) |
+| `skill/dlss5-nr-rtx30/` | the Claude skill (SKILL.md, component/version reference, BioShock and Expedition 33 case studies) |
 
 ## Credits
 
