@@ -618,6 +618,7 @@ FG caveats.
 | Best memory overclock (+723 vs lower) for NR throughput | not measured. Compare helper ms at +0 / +400 / +723 |
 | NR tax in a native-DLSS game (no Feeder helper) | **answered**: 10.0 ms in Expedition 33 at 2K/360p vs 8.5 ms in BioShock. Same order, not identical |
 | FG cost on a 3070 | **answered**: ~3.2 ms per group at 1440p 2X (Expedition 33). Whether NR *survives* DLSS-G is still untested — NR was removed there before FG went in |
+| Whether NR (RenoDX DLSS5) survives DLSS-G | untested. A *different* RenoDX add-on flickered with FG in Expedition 33 (section 12), so assume they conflict until measured |
 | A close-up of a lit, living face (NR's skin model) | only a dead character in a dim scene so far. Try a Little Sister or a lit splicer |
 | Motion artefacts of NR at 360p (shimmer or lag in pans) | static crops only so far. Needs a slow-pan comparison |
 
@@ -693,6 +694,30 @@ Reading it:
   against the 120 Hz ceiling. 4X would be pointless here — the panel can't show it.
 - **Multipliers don't change how the game feels.** Input still tracks the ~40 real fps at both 2X and 3X.
 - Final settings: **2K + Epic + DLSS Quality + FG 3X** — 119 displayed / 40 real.
+
+## The white flicker: RenoDX and frame generation can't coexist
+
+With FG on, every white or bright surface flickered continuously. Ruled out one at a time, each with
+a game restart: `Optimized=0` (stock kernels), all post-processing off (film grain, chromatic
+aberration, motion blur), and the mod's older **310.1** runtime instead of 310.9. The flicker
+survived all three.
+
+The cause was a **separate mod already installed in the game**: the RenoDX HDR/tonemap add-on
+(`renodx-clairobscur_expedition33.addon64` behind ReShade 6.7.3), which rewrites the game's DX12
+shaders. A Steam thread for this game says the same thing — "if you have RenoDX installed, just
+disable it and it should fix the flickering issue" — with a follow-up that RenoDX can stay if the
+frame-generation DLL is rolled back to the DLSS 3 era (3.8.1), which also caps you at 2X.
+
+Removing the RenoDX add-on fixed it, with FG still at 3X on the 310.9 runtime.
+
+**The lesson for this stack:** a ReShade add-on that rewrites the game's shaders and DLSS-G's
+interpolation do not mix. That applies to RenoDX DLSS5 (our NR route) too, so on a game where both
+are wanted, expect to test them together rather than assume they compose. Also check the game folder
+for mods *before* blaming the FG unlock: this folder also had ClairObscurFix, Ultimate ASI Loader,
+UE4SS and a Lua cutscene mod, and ClairObscurFix ships with `AllowFrameGen = false` for cutscenes —
+the mod author had already found FG misbehaving here.
+
+Losing RenoDX costs its better tonemapping; the game's own HDR (`bUseHDRDisplayOutput`) still works.
 
 ### Four measurement traps this game exposed
 

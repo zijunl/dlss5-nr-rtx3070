@@ -81,6 +81,10 @@ The route depends entirely on these facts. Check them from the files, not from m
 5. **Anti-cheat and online play**: EAC/BattlEye/online modes. Proxy DLLs and ReShade can get the
    account banned. Only proceed for single-player or offline play, and say so.
 6. Current driver (`nvidia-smi`) and free VRAM. NR at 4K used about 4–6 GB on this 8 GB card.
+7. **Existing mods in the game folder.** List `*.addon64`, `*.asi`, `ue4ss\`, and any proxy DLL
+   (`dxgi`, `winmm`, `version`, `dsound`, `dwmapi`). A shader-rewriting ReShade add-on such as a RenoDX
+   HDR mod conflicts with DLSS-G — in Expedition 33 it made every white surface flicker, and removing it
+   was the fix. Ask before disabling someone's existing mods, and put them back when done.
 
 ## Step 2: Pick the route
 

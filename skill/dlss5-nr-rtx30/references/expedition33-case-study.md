@@ -77,6 +77,24 @@ Notes:
 - VRAM ran 7.4–7.7 GB of 8 GB in every playable configuration. 4K + Performance used *less* than
   2K + Balanced, because the internal render buffers dominate.
 
+## The white flicker: RenoDX plus DLSS-G
+
+Symptom: with FG on, every white/bright surface flickered continuously; FG off was clean.
+Ruled out (each with a restart): `Optimized=0`, all post-processing off, and the mod's older 310.1
+runtime. The cause was a **RenoDX HDR add-on already installed in the game folder**
+(`renodx-clairobscur_expedition33.addon64` + ReShade 6.7.3), which rewrites the game's DX12 shaders.
+A Steam thread for this game reports the same and the same fix. Removing the add-on fixed it, FG
+still at 3X on 310.9.
+
+Rules this gives us:
+- **Inventory the game folder before blaming the FG unlock.** Look for `dxgi.dll`/`winmm.dll`/
+  `version.dll`/`dsound.dll`/`dwmapi.dll` proxies, `*.addon64`, `*.asi`, `ue4ss\`. Here there were
+  four other mods, and ClairObscurFix even ships `AllowFrameGen = false` for cutscenes.
+- **A shader-rewriting ReShade add-on and DLSS-G do not mix.** That includes RenoDX DLSS5, the NR
+  consumer this skill uses, so NR + FG needs testing rather than assuming.
+- The game's own HDR still works without RenoDX; on Windows 10 there is no Auto HDR, and NVIDIA's
+  RTX HDR is another injected filter that may conflict as well.
+
 ## Lessons this game added
 1. **Wait for textures to settle before measuring.** The first Epic capture showed 334 ms hitches and
    a 958:1461 generated-frame ratio; it was the texture streaming that follows a settings change.
